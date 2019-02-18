@@ -1,0 +1,1 @@
+pyinstaller  -i dicemonitor.ico --onefile  diceminer.py

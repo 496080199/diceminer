@@ -1,34 +1,96 @@
 from pyeoskit import db
 from pyeoskit import eosapi
 from pyeoskit import wallet
-import os,random
+from configparser import ConfigParser
+from pytz import timezone
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.combining import OrTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+import os,random,getpass,multiprocessing
+from ctypes import c_char_p
+
+import logging
+from logging.handlers import RotatingFileHandler,TimedRotatingFileHandler
 
 
-nodes=[
-'http://jungle.cryptolions.io:18888',
-'http://dev.cryptolions.io:38888',
-]
-eosapi.set_nodes(nodes)
-ref='cljcljcolden'
+log=logging.getLogger()
+log.setLevel(logging.WARN)
+fmt = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+h = TimedRotatingFileHandler(filename='diceminer.log', when='midnight', interval=1, backupCount=15, encoding='UTF-8')
+h.setFormatter(fmt)
+log.addHandler(h)
+
+tz=timezone('Asia/Shanghai')
+scheduler = BlockingScheduler(timezone=tz)
+
+cfg=ConfigParser()
+cfg.read('config.ini',encoding="utf-8")
+
+
+
+ref='cljcljtoken1'
+
+
+def openwallet():
+    eoswallet = 'eoswallet'
+    if not os.path.exists(eoswallet+'.wallet'):
+        psw = wallet.create(eoswallet)
+        print('欢迎使用diceminer，首次使用需导入私钥创建钱包')
+        print('您的EOS钱包密码为：' + psw + '，请务必妥善保管，否则无法打开钱包。\n')
+        accept = input('确认请输入yes/y:\n')
+        if accept == 'yes' or accept == 'y':
+            pass
+        else:
+            os.remove(eoswallet + '.wallet')
+            exit(0)
+        wallet.unlock(eoswallet, psw)
+        secret = getpass.getpass('\n请输入账号的操作私钥，导入钱包中，程序不会记录您的私钥:\n')
+        importresult=wallet.import_key(eoswallet, secret)
+        if importresult:
+            print('钱包导入私钥成功,请重新运行即可\n')
+            wallet.save(eoswallet)
+            wallet.lock(eoswallet)
+            exit(0)
+        else:
+            os.remove(eoswallet+'.wallet')
+            print('私钥导入错误，请重新运行再尝试\n')
+            exit(0)
+
+    else:
+        while 1:
+            wallet.open(eoswallet)
+            print('注：如已忘记钱包密码，可删除.wallet文件，重新导入私钥')
+            psw = getpass.getpass('请输入您的钱包密码：\n')
+            mywallet = wallet.unlock(eoswallet, psw)
+            if mywallet:
+                wallet.lock(eoswallet)
+                return psw
+            else:
+                print('钱包密码错误，请重试\n')
+                continue
 
 
 def mkrandstr():
     randstr=''
     for i in range(18):
         randstr+=random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890')
-    return randstr
+    return str(randstr)
 
-def bet(account,amount,token,rollmin,rollmax):
+def bet(psw,account,amount,token,rollmin,rollmax):
+    log.warning('###DICE投注开始###')
     if token=='EOS':
         acacount='eosio.token'
     elif token=='EBTC' or token=='EUSD' or token =='EETH':
         acacount='bitpietokens'
+    elif token=='DICE':
+        acacount='betdicetoken'
     else:
         acacount=''
         print('币种不存在,退出')
         exit(0)
     authorization = {account: 'active'}
-    memo='action:bet,seed:' + mkrandstr() + ',rollUnder:' + random.randint(rollmin,rollmax) + ',ref:' + ref
+    randnum=random.randint(rollmin,rollmax)
+    memo='action:bet,seed:' + mkrandstr() + ',rollUnder:' + str(randnum) + ',ref:' + str(ref)
     data={
         "from":account,
         "to":'betdiceadmin',
@@ -37,19 +99,66 @@ def bet(account,amount,token,rollmin,rollmax):
     }
 
     betaction=[acacount,'transfer',data,authorization]
-    return eosapi.push_action(*betaction)
+    log.warning('#投注账号：'+str(account)+',本次投注：'+'%.4f'%amount+" "+token+',投注小于数字：'+str(randnum))
+    wallet.open('eoswallet')
+    wallet.unlock('eoswallet',psw.value)
+    result=eosapi.push_action(*betaction)
+    wallet.lock('eoswallet')
+    log.warning('投注记录：\n'+str(result))
 
 def main():
-    if not os.path.exists('eoswallet'):
-        psw=wallet.create('eoswallet')
-        print('您的EOS钱包密码为：' + psw + '，请务必妥善保管，否则无法打开钱包。')
-        wallet.unlock('eoswallet', psw)
-        secret=input('请输入账号的操作私钥，导入钱包中，本程序不会记录您的私钥')
-        wallet.import_key('eoswallet', secret)
-        wallet.lock('eoswallet')
-
-
-    pass
+    net=cfg.get('miner','net')
+    nodes = [
+        net,
+    ]
+    eosapi.set_nodes(nodes)
+    psw=openwallet()
+    manager=multiprocessing.Manager()
+    psw = manager.Value(c_char_p, psw)
+    interval=cfg.getint('miner','interval')
+    if interval < 1:
+        print ('投注间隔为整数，且最小为1秒')
+        exit(0)
+    trigger = OrTrigger([
+        IntervalTrigger(seconds=interval)
+    ])
+    account=cfg.get('miner','account')
+    amount=cfg.getfloat('miner','amount')
+    token=cfg.get('miner','token').upper()
+    if token == 'EOS':
+        if amount < 0.1:
+            print('投注EOS金额必须大于等于0.1')
+            exit(0)
+    elif token == 'EBTC':
+        if amount < 0.0001:
+            print('投注EBTC金额必须大于等于0.0001')
+            exit(0)
+    elif token == 'EETH':
+        if amount < 0.001:
+            print('投注EETH金额必须大于等于0.001')
+            exit(0)
+    elif token == 'EUSD':
+        if amount < 0.1:
+            print('投注EUSD金额必须大于等于0.1')
+            exit(0)
+    elif token == 'DICE':
+        if amount < 10.0:
+            print('投注DICE金额必须大于等于10.0')
+            exit(0)
+    rollmin=cfg.getint('miner','rollmin')
+    rollmax=cfg.getint('miner','rollmax')
+    if rollmin < 2 or rollmax > 96 or rollmin >= rollmax:
+        print('投注数字大小范围为2-96，设置错误')
+        exit(0)
+    scheduler.add_job(bet, trigger, name='bet',
+                      id='bet',
+                      args=[psw,account,amount,token,rollmin,rollmax])
+    print('投注任务已启动')
+    scheduler.print_jobs()
+    try:
+        scheduler.start()
+    except (KeyboardInterrupt, SystemExit):
+        scheduler.shutdown()
 
 if __name__ == '__main__':
     main()
