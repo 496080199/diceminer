@@ -1,4 +1,3 @@
-from pyeoskit import db
 from pyeoskit import eosapi
 from pyeoskit import wallet
 from configparser import ConfigParser
@@ -6,9 +5,8 @@ from pytz import timezone
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-import os,random,getpass,multiprocessing
-from ctypes import c_char_p
-
+import os,random,getpass
+import typing
 import logging
 from logging.handlers import RotatingFileHandler,TimedRotatingFileHandler
 
@@ -21,17 +19,12 @@ h.setFormatter(fmt)
 log.addHandler(h)
 
 tz=timezone('Asia/Shanghai')
-scheduler = BlockingScheduler(timezone=tz)
-
-cfg=ConfigParser()
-cfg.read('config.ini',encoding="utf-8")
-
 
 
 ref='cljcljtoken1'
 
 
-def openwallet():
+def createwallet():
     eoswallet = 'eoswallet'
     if not os.path.exists(eoswallet+'.wallet'):
         psw = wallet.create(eoswallet)
@@ -42,7 +35,7 @@ def openwallet():
             pass
         else:
             os.remove(eoswallet + '.wallet')
-            exit(0)
+            os._exit(0)
         wallet.unlock(eoswallet, psw)
         secret = getpass.getpass('\n请输入账号的操作私钥，导入钱包中，程序不会记录您的私钥:\n')
         importresult=wallet.import_key(eoswallet, secret)
@@ -50,24 +43,16 @@ def openwallet():
             print('钱包导入私钥成功,请重新运行即可\n')
             wallet.save(eoswallet)
             wallet.lock(eoswallet)
-            exit(0)
+            os._exit(0)
         else:
             os.remove(eoswallet+'.wallet')
             print('私钥导入错误，请重新运行再尝试\n')
-            exit(0)
+            os._exit(0)
 
-    else:
-        while 1:
-            wallet.open(eoswallet)
-            print('注：如已忘记钱包密码，可删除.wallet文件，重新导入私钥')
-            psw = getpass.getpass('请输入您的钱包密码：\n')
-            mywallet = wallet.unlock(eoswallet, psw)
-            if mywallet:
-                wallet.lock(eoswallet)
-                return psw
-            else:
-                print('钱包密码错误，请重试\n')
-                continue
+
+
+
+
 
 
 def mkrandstr():
@@ -87,7 +72,7 @@ def bet(psw,account,amount,token,rollmin,rollmax):
     else:
         acacount=''
         print('币种不存在,退出')
-        exit(0)
+        os._exit(0)
     authorization = {account: 'active'}
     randnum=random.randint(rollmin,rollmax)
     memo='action:bet,seed:' + mkrandstr() + ',rollUnder:' + str(randnum) + ',ref:' + str(ref)
@@ -101,24 +86,36 @@ def bet(psw,account,amount,token,rollmin,rollmax):
     betaction=[acacount,'transfer',data,authorization]
     log.warning('#投注账号：'+str(account)+',本次投注：'+'%.4f'%amount+" "+token+',投注小于数字：'+str(randnum))
     wallet.open('eoswallet')
-    wallet.unlock('eoswallet',psw.value)
+    wallet.unlock('eoswallet',psw)
     result=eosapi.push_action(*betaction)
     wallet.lock('eoswallet')
     log.warning('投注记录：\n'+str(result))
 
 def main():
-    net=cfg.get('miner','net')
+    scheduler = BlockingScheduler(timezone=tz)
+
+    cfg = ConfigParser()
+    cfg.read('config.ini', encoding="utf-8")
+
+    net = cfg.get('miner', 'net')
     nodes = [
         net,
     ]
     eosapi.set_nodes(nodes)
-    psw=openwallet()
-    manager=multiprocessing.Manager()
-    psw = manager.Value(c_char_p, psw)
+
+    createwallet()
+    print('注：如已忘记钱包密码，可删除.wallet文件，重新导入私钥')
+    psw = getpass.getpass('请输入您的钱包密码：\n')
+    mywallet = wallet.unlock('eoswallet', psw)
+    if mywallet:
+        pass
+    else:
+        print('钱包密码错误，请重试\n')
+        os._exit(0)
     interval=cfg.getint('miner','interval')
     if interval < 1:
         print ('投注间隔为整数，且最小为1秒')
-        exit(0)
+        os._exit(0)
     trigger = OrTrigger([
         IntervalTrigger(seconds=interval)
     ])
@@ -128,32 +125,32 @@ def main():
     if token == 'EOS':
         if amount < 0.1:
             print('投注EOS金额必须大于等于0.1')
-            exit(0)
+            os._exit(0)
     elif token == 'EBTC':
         if amount < 0.0001:
             print('投注EBTC金额必须大于等于0.0001')
-            exit(0)
+            os._exit(0)
     elif token == 'EETH':
         if amount < 0.001:
             print('投注EETH金额必须大于等于0.001')
-            exit(0)
+            os._exit(0)
     elif token == 'EUSD':
         if amount < 0.1:
             print('投注EUSD金额必须大于等于0.1')
-            exit(0)
+            os._exit(0)
     elif token == 'DICE':
         if amount < 10.0:
             print('投注DICE金额必须大于等于10.0')
-            exit(0)
+            os._exit(0)
     rollmin=cfg.getint('miner','rollmin')
     rollmax=cfg.getint('miner','rollmax')
     if rollmin < 2 or rollmax > 96 or rollmin >= rollmax:
         print('投注数字大小范围为2-96，设置错误')
-        exit(0)
+        os._exit(0)
     scheduler.add_job(bet, trigger, name='bet',
                       id='bet',
                       args=[psw,account,amount,token,rollmin,rollmax])
-    print('投注任务已启动')
+    print('投注任务已启动,执行详情请查看日志文件')
     scheduler.print_jobs()
     try:
         scheduler.start()

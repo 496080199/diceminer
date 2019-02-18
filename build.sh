@@ -1,1 +1,1 @@
-pyinstaller  -F -i dicemonitor.ico dicemonitor.py
+pyinstaller  -F -i dicemonitor.ico  dicemonitor.py

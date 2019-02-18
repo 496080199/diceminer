@@ -1,1 +1,1 @@
-pyinstaller  -i dicemonitor.ico --onefile  diceminer.py
+pyinstaller  -F -i dicemonitor.ico  --clean diceminer.py
