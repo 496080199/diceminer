@@ -1,9 +1,9 @@
-FROM python:alpine3.8
+FROM python:3.6-alpine3.8
 
 WORKDIR /usr/src/app
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt&&pip install --no-cache https://github.com/learnforpractice/pyeoskit/releases/download/v0.3.0/pyeoskit-0.3.0-cp36-cp36m-linux_x86_64.whl
 
 COPY diceminer.py ./diceminer.py
 
