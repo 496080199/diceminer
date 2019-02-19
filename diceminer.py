@@ -5,7 +5,7 @@ from pytz import timezone
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-import os,random,getpass
+import os,random,getpass,datetime
 import typing
 import logging
 from logging.handlers import RotatingFileHandler,TimedRotatingFileHandler
@@ -21,23 +21,23 @@ log.addHandler(h)
 tz=timezone('Asia/Shanghai')
 
 
-ref='cljcljtoken1'
+ref='cljcljcolden'
 
 
 def createwallet():
     eoswallet = 'eoswallet'
     if not os.path.exists(eoswallet+'.wallet'):
         psw = wallet.create(eoswallet)
-        print('欢迎使用diceminer，首次使用需导入私钥创建钱包')
-        print('您的EOS钱包密码为：' + psw + '，请务必妥善保管，否则无法打开钱包。\n')
-        accept = input('确认请输入yes/y:\n')
+        print('首次使用需导入私钥创建钱包')
+        print('您的EOS钱包密码为：' + psw + '，（重要！重要！重要！)请务必妥善保管，否则无法打开钱包。\n')
+        accept = input('确认请输入yes或y（回车结束）:\n')
         if accept == 'yes' or accept == 'y':
             pass
         else:
             os.remove(eoswallet + '.wallet')
             os._exit(0)
         wallet.unlock(eoswallet, psw)
-        secret = getpass.getpass('\n请输入账号的操作私钥，导入钱包中，程序不会记录您的私钥:\n')
+        secret = getpass.getpass('\n请输入账号的操作私钥（回车结束），导入钱包中，程序不会记录您的私钥:\n')
         importresult=wallet.import_key(eoswallet, secret)
         if importresult:
             print('钱包导入私钥成功,请重新运行即可\n')
@@ -52,7 +52,9 @@ def createwallet():
 
 
 
-
+def getdatetime():
+        dt=datetime.datetime.now(tz).isoformat()
+        return dt
 
 
 def mkrandstr():
@@ -87,11 +89,17 @@ def bet(psw,account,amount,token,rollmin,rollmax):
     log.warning('#投注账号：'+str(account)+',本次投注：'+'%.4f'%amount+" "+token+',投注小于数字：'+str(randnum))
     wallet.open('eoswallet')
     wallet.unlock('eoswallet',psw)
+    log.warning('投注时间：'+str(getdatetime()))
     result=eosapi.push_action(*betaction)
     wallet.lock('eoswallet')
     log.warning('投注记录：\n'+str(result))
 
 def main():
+    print('欢迎使用diceminer\n'
+          '本程序基于DICE平台的骰子游戏开发的自动化投注工具，可设定投注数字范围随机投注，支持EOS,EBTC,EETH,EUSD,DICE币种，按时间间隔\n'
+          '投注，具体查看config.ini配置文件。程序自带钱包功能，通过钱包密码保护私钥安全，为确保更安全，建议开设独立的EOS账号运行程序。\n'
+          '步骤：1.根据需要配置config.ini(UTF-8编码) 2.启动生成钱包密码并导入操作私钥到钱包 3.重启即开始运行投注\n'
+          '有问题可加入telegram电报群讨论:https://t.me/dice1_zh，我的tg号：xiaopao\n\n')
     scheduler = BlockingScheduler(timezone=tz)
 
     cfg = ConfigParser()
@@ -105,7 +113,7 @@ def main():
 
     createwallet()
     print('注：如已忘记钱包密码，可删除.wallet文件，重新导入私钥')
-    psw = getpass.getpass('请输入您的钱包密码：\n')
+    psw = getpass.getpass('请输入您的钱包密码（回车结束）：\n')
     mywallet = wallet.unlock('eoswallet', psw)
     if mywallet:
         pass
@@ -150,8 +158,8 @@ def main():
     scheduler.add_job(bet, trigger, name='bet',
                       id='bet',
                       args=[psw,account,amount,token,rollmin,rollmax])
-    print('投注任务已启动,执行详情请查看日志文件')
-    scheduler.print_jobs()
+    print('投注任务已启动,每隔'+str(interval)+'秒执行一次，请保证EOS账号内CPU资源充足，执行详情请查看diceminer.log日志文件,结束运行请关闭窗口')
+    #scheduler.print_jobs()
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
