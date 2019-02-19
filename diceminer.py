@@ -114,14 +114,14 @@ def main():
         rollmax = cfg.getint('miner', 'rollmax')
     else:
         env_dist = os.environ
-        net = env_dist['NET']
-        interval = env_dist['INTERVAL']
-        account = env_dist['ACCOUNT']
-        amount = env_dist['AMOUNT']
-        token = env_dist['TOKEN']
-        rollmin = env_dist['ROLLMIN']
-        rollmax = env_dist['ROLLMAX']
-        psw = env_dist['PSW']
+        net = str(env_dist['NET'])
+        interval = int(env_dist['INTERVAL'])
+        account = str(env_dist['ACCOUNT'])
+        amount = float(env_dist['AMOUNT'])
+        token = str(env_dist['TOKEN'].upper())
+        rollmin = int(env_dist['ROLLMIN'])
+        rollmax = int(env_dist['ROLLMAX'])
+
 
 
     nodes = [
