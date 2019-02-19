@@ -103,9 +103,26 @@ def main():
     scheduler = BlockingScheduler(timezone=tz)
 
     cfg = ConfigParser()
-    cfg.read('config.ini', encoding="utf-8")
+    if os.path.exists('config.ini'):
+        cfg.read('config.ini', encoding="utf-8")
+        net = cfg.get('miner', 'net')
+        interval = cfg.getint('miner', 'interval')
+        account = cfg.get('miner', 'account')
+        amount = cfg.getfloat('miner', 'amount')
+        token = cfg.get('miner', 'token').upper()
+        rollmin = cfg.getint('miner', 'rollmin')
+        rollmax = cfg.getint('miner', 'rollmax')
+    else:
+        env_dist = os.environ
+        net = env_dist['NET']
+        interval = env_dist['INTERVAL']
+        account = env_dist['ACCOUNT']
+        amount = env_dist['AMOUNT']
+        token = env_dist['TOKEN']
+        rollmin = env_dist['ROLLMIN']
+        rollmax = env_dist['ROLLMAX']
 
-    net = cfg.get('miner', 'net')
+
     nodes = [
         net,
     ]
@@ -120,16 +137,14 @@ def main():
     else:
         print('钱包密码错误，请重试\n')
         os._exit(0)
-    interval=cfg.getint('miner','interval')
+
     if interval < 1:
         print ('投注间隔为整数，且最小为1秒')
         os._exit(0)
     trigger = OrTrigger([
         IntervalTrigger(seconds=interval)
     ])
-    account=cfg.get('miner','account')
-    amount=cfg.getfloat('miner','amount')
-    token=cfg.get('miner','token').upper()
+
     if token == 'EOS':
         if amount < 0.1:
             print('投注EOS金额必须大于等于0.1')
@@ -150,8 +165,7 @@ def main():
         if amount < 10.0:
             print('投注DICE金额必须大于等于10.0')
             os._exit(0)
-    rollmin=cfg.getint('miner','rollmin')
-    rollmax=cfg.getint('miner','rollmax')
+
     if rollmin < 2 or rollmax > 96 or rollmin >= rollmax:
         print('投注数字大小范围为2-96，设置错误')
         os._exit(0)
