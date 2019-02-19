@@ -43,6 +43,7 @@ def createwallet():
             print('钱包导入私钥成功\n')
             wallet.save(eoswallet)
             wallet.lock(eoswallet)
+            return psw
         else:
             os.remove(eoswallet+'.wallet')
             print('私钥导入错误，请重新运行再尝试\n')
@@ -128,7 +129,7 @@ def main():
     ]
     eosapi.set_nodes(nodes)
 
-    createwallet()
+    psw=createwallet()
     print('注：如已忘记钱包密码，可删除.wallet文件，重新导入私钥')
     if os.path.exists('config.ini'):
         psw = getpass.getpass('请输入您的钱包密码（回车结束）：\n')
