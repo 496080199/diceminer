@@ -101,7 +101,7 @@ def main():
           '步骤：1.根据需要配置config.ini(UTF-8编码) 2.启动生成钱包密码并导入操作私钥到钱包 3.重启即开始运行投注\n'
           '有问题可加入telegram电报群讨论:https://t.me/dice1_zh，我的tg号：xiaopao\n\n')
     scheduler = BlockingScheduler(timezone=tz)
-
+    psw=''
     cfg = ConfigParser()
     if os.path.exists('config.ini'):
         cfg.read('config.ini', encoding="utf-8")
@@ -121,6 +121,7 @@ def main():
         token = env_dist['TOKEN']
         rollmin = env_dist['ROLLMIN']
         rollmax = env_dist['ROLLMAX']
+        psw = env_dist['PSW']
 
 
     nodes = [
@@ -130,7 +131,9 @@ def main():
 
     createwallet()
     print('注：如已忘记钱包密码，可删除.wallet文件，重新导入私钥')
-    psw = getpass.getpass('请输入您的钱包密码（回车结束）：\n')
+    if os.path.exists('config.ini'):
+        psw = getpass.getpass('请输入您的钱包密码（回车结束）：\n')
+
     mywallet = wallet.unlock('eoswallet', psw)
     if mywallet:
         pass
