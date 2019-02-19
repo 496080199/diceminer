@@ -40,10 +40,9 @@ def createwallet():
         secret = getpass.getpass('\n请输入账号的操作私钥（回车结束），导入钱包中，程序不会记录您的私钥:\n')
         importresult=wallet.import_key(eoswallet, secret)
         if importresult:
-            print('钱包导入私钥成功,请重新运行即可\n')
+            print('钱包导入私钥成功\n')
             wallet.save(eoswallet)
             wallet.lock(eoswallet)
-            os._exit(0)
         else:
             os.remove(eoswallet+'.wallet')
             print('私钥导入错误，请重新运行再尝试\n')
