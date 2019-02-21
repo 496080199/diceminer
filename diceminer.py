@@ -60,7 +60,7 @@ def getdatetime():
 def mkrandstr():
     randstr=''
     for i in range(18):
-        rand_gen=random.SystemRandom
+        rand_gen=random.SystemRandom()
         randstr+=rand_gen.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890')
     return str(randstr)
 
@@ -77,8 +77,8 @@ def bet(psw,account,amount,token,rollmin,rollmax):
         print('币种不存在,退出')
         os._exit(0)
     authorization = {account: 'active'}
-    rand_gen = random.SystemRandom
-    randnum=rand_gen.randint(rollmin,rollmax)
+    rand_gen = random.SystemRandom()
+    randnum=rand_gen.randint(rollmin, rollmax+1)
     memo='action:bet,seed:' + mkrandstr() + ',rollUnder:' + str(randnum) + ',ref:' + str(ref)
     data={
         "from":account,
