@@ -14,5 +14,6 @@ ENV AMOUNT 0.1
 ENV TOKEN EOS
 ENV ROLLMIN 2
 ENV ROLLMAX 96
+ENV SEC ' '
 
 CMD [ "python", "./diceminer.py" ]

@@ -49,8 +49,21 @@ def createwallet():
             print('私钥导入错误，请重新运行再尝试\n')
             os._exit(0)
 
-
-
+def secretwallet(sec):
+    eoswallet = 'eoswallet'
+    if not os.path.exists(eoswallet + '.wallet'):
+        psw = wallet.create(eoswallet)
+        wallet.unlock(eoswallet, psw)
+        importresult = wallet.import_key(eoswallet, sec)
+        if importresult:
+            print('钱包导入私钥成功\n')
+            wallet.save(eoswallet)
+            wallet.lock(eoswallet)
+            return psw
+        else:
+            os.remove(eoswallet+'.wallet')
+            print('私钥导入错误，请重新运行再尝试\n')
+            os._exit(0)
 
 def getdatetime():
         dt=datetime.datetime.now(tz).isoformat()
@@ -114,6 +127,7 @@ def main():
         token = cfg.get('miner', 'token').upper()
         rollmin = cfg.getint('miner', 'rollmin')
         rollmax = cfg.getint('miner', 'rollmax')
+        psw = createwallet()
     else:
         env_dist = os.environ
         net = str(env_dist['NET'])
@@ -123,6 +137,8 @@ def main():
         token = str(env_dist['TOKEN'].upper())
         rollmin = int(env_dist['ROLLMIN'])
         rollmax = int(env_dist['ROLLMAX'])
+        sec = str(env_dist['SEC'])
+        psw = secretwallet(sec)
 
 
 
@@ -131,7 +147,6 @@ def main():
     ]
     eosapi.set_nodes(nodes)
 
-    psw=createwallet()
     print('注：如已忘记钱包密码，可删除.wallet文件，重新导入私钥')
     if os.path.exists('config.ini'):
         psw = getpass.getpass('请输入您的钱包密码（回车结束）：\n')
