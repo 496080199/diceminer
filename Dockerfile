@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt&&pip install --no-cache https
 COPY diceminer.py ./diceminer.py
 
 ENV NET "https://eos.greymass.com:443"
-ENV INTERVAL 30
+ENV INTERVAL 60
 ENV ACCOUNT testtesttest
 ENV AMOUNT 0.1
 ENV TOKEN EOS
